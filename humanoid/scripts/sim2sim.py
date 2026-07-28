@@ -35,12 +35,12 @@ from tqdm import tqdm
 from collections import deque
 from scipy.spatial.transform import Rotation as R
 from humanoid import LEGGED_GYM_ROOT_DIR
-from humanoid.envs import XBotLCfg
+from humanoid.envs import XBotLCfg,ZRobotCfg
 import torch
 
 
 class cmd:
-    vx = 0.4
+    vx = 0.3
     vy = 0.0
     dyaw = 0.0
 
@@ -110,6 +110,30 @@ def run_mujoco(policy, cfg):
 
     count_lowlevel = 0
 
+    default_angle =np.zeros((cfg.env.num_actions),dtype=np.double)
+
+    default_angle[0]=cfg.init_state.default_joint_angles['L_hip_roll_joint']
+    default_angle[1]=cfg.init_state.default_joint_angles['L_hip_yaw_joint']
+    default_angle[2]=cfg.init_state.default_joint_angles['L_hip_pitch_joint']
+    default_angle[3]=cfg.init_state.default_joint_angles['L_knee_joint']
+    default_angle[4]=cfg.init_state.default_joint_angles['L_foot_pitch_joint']
+    default_angle[5]=cfg.init_state.default_joint_angles['L_foot_roll_joint']
+    default_angle[6]=cfg.init_state.default_joint_angles['R_hip_roll_joint']
+    default_angle[7]=cfg.init_state.default_joint_angles['R_hip_yaw_joint']
+    default_angle[8]=cfg.init_state.default_joint_angles['R_hip_pitch_joint']
+    default_angle[9]=cfg.init_state.default_joint_angles['R_knee_joint']
+    default_angle[10]=cfg.init_state.default_joint_angles['R_foot_pitch_joint']
+    default_angle[11]=cfg.init_state.default_joint_angles['R_foot_roll_joint']
+
+
+    joint_names = ['L_hip_roll', 'L_hip_yaw', 'L_hip_pitch', 'L_knee', 'L_foot_pitch', 'L_foot_roll',
+                   'R_hip_roll', 'R_hip_yaw', 'R_hip_pitch', 'R_knee', 'R_foot_pitch', 'R_foot_roll']
+
+    # 打开监控日志文件
+    import time
+    log_path = f"sim2sim_log_{time.strftime('%Y%m%d_%H%M%S')}.csv"
+    log_file = open(log_path, 'w')
+    log_file.write("step,joint,action,target_q,q_curr,tau\n")
 
     for _ in tqdm(range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)), desc="Simulating..."):
 
@@ -127,10 +151,14 @@ def run_mujoco(policy, cfg):
 
             obs[0, 0] = math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / 0.64)
             obs[0, 1] = math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / 0.64)
+            # if count_lowlevel>3000:
+            #     obs[0, 2] = (cmd.vx * 2) * cfg.normalization.obs_scales.lin_vel
+            # else:
+            #     obs[0, 2] = cmd.vx * cfg.normalization.obs_scales.lin_vel
             obs[0, 2] = cmd.vx * cfg.normalization.obs_scales.lin_vel
             obs[0, 3] = cmd.vy * cfg.normalization.obs_scales.lin_vel
             obs[0, 4] = cmd.dyaw * cfg.normalization.obs_scales.ang_vel
-            obs[0, 5:17] = q * cfg.normalization.obs_scales.dof_pos
+            obs[0, 5:17] = (q - default_angle) * cfg.normalization.obs_scales.dof_pos
             obs[0, 17:29] = dq * cfg.normalization.obs_scales.dof_vel
             obs[0, 29:41] = action
             obs[0, 41:44] = omega
@@ -147,7 +175,28 @@ def run_mujoco(policy, cfg):
             action[:] = policy(torch.tensor(policy_input))[0].detach().numpy()
             action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)
 
-            target_q = action * cfg.control.action_scale
+            if count_lowlevel>1000:
+                as_scale = cfg.control.action_scale
+                if isinstance(as_scale, dict):
+                    # joint order: hip_roll, hip_yaw, hip_pitch, knee, foot_pitch, foot_roll (x2 L/R)
+                    per_joint_scale = np.array([
+                        as_scale['hip_roll'], as_scale['hip_yaw'], as_scale['hip_pitch'],
+                        as_scale['knee'], as_scale['foot'], as_scale['foot'],
+                        as_scale['hip_roll'], as_scale['hip_yaw'], as_scale['hip_pitch'],
+                        as_scale['knee'], as_scale['foot'], as_scale['foot'],
+                    ])
+                    # for i, name in enumerate(joint_names):
+                    #     for key, val in as_scale.items():
+                    #         if key in name:
+                    #             action_scaled[0, i] = action[0, i] * val
+                    #             break
+                    target_q = action * per_joint_scale + default_angle
+                else:
+                    target_q = action * as_scale + default_angle
+            else:
+                target_q = default_angle
+
+            # target_q = action * cfg.control.action_scale
 
 
         target_dq = np.zeros((cfg.env.num_actions), dtype=np.double)
@@ -157,37 +206,51 @@ def run_mujoco(policy, cfg):
         tau = np.clip(tau, -cfg.robot_config.tau_limit, cfg.robot_config.tau_limit)  # Clamp torques
         data.ctrl = tau
 
+        # --- 实时监控：每 10 步写入 CSV ---
+        if count_lowlevel % 10 == 0:
+            for j in range(12):
+                log_file.write(f"{count_lowlevel},{joint_names[j]},{action[j]:.6f},{target_q[j]:.6f},{q[j]:.6f},{tau[j]:.6f}\n")
+
         mujoco.mj_step(model, data)
         viewer.render()
         count_lowlevel += 1
 
     viewer.close()
+    log_file.close()
+    print(f"日志已保存到: {log_path}")
 
 
 if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='Deployment script.')
-    parser.add_argument('--load_model', type=str, required=True,
+    parser.add_argument('--load_model', type=str, default='/home/c112/codes/chen_human/humanoid26_6_8/humanoid-gym/logs/zrobot_ppo/exported/policies/policy_1.pt',
                         help='Run to load from.')
-    parser.add_argument('--terrain', action='store_true', help='terrain or plane')
+    parser.add_argument('--terrain', action='store_true', default='plane', help='terrain or plane')
     args = parser.parse_args()
 
-    class Sim2simCfg(XBotLCfg):
+    class Sim2simCfg(ZRobotCfg):
 
         class sim_config:
             if args.terrain:
-                mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/XBot/mjcf/XBot-L-terrain.xml'
+                mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zrobot/mjcf/zrobot.xml'
             else:
-                mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/XBot/mjcf/XBot-L.xml'
+                mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/zrobot/mjcf/zrobot.xml'
             sim_duration = 60.0
             dt = 0.001
             decimation = 10
 
         class robot_config:
-            kps = np.array([200, 200, 350, 350, 15, 15, 200, 200, 350, 350, 15, 15], dtype=np.double)
-            kds = np.array([10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10], dtype=np.double)
-            tau_limit = 200. * np.ones(12, dtype=np.double)
+            kps = np.array([200, 120, 120, 180, 80, 80, 200, 120, 120, 180, 80, 80], dtype=np.double)
+            kds = np.array([3, 1, 1, 3, 1, 1, 3, 1, 1, 3, 1, 1], dtype=np.double)
+            # kps = np.array([120, 120, 120, 120, 60, 60, 120, 120, 120, 120, 60, 60], dtype=np.double)
+            # kds = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=np.double)
+            # kps = np.array([200, 200, 200, 200, 80, 80, 200, 200, 200, 200, 80, 80], dtype=np.double)
+            # kds = np.array([8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8], dtype=np.double)
+            # kps = np.array([200, 200, 200, 200, 80, 80, 200, 200, 200, 200, 80, 80], dtype=np.double)
+            # kds = np.array([3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3], dtype=np.double)
+            tau_limit = np.array([51, 51, 102, 102, 14.45, 14.45,
+                                   51, 51, 102, 102, 14.45, 14.45], dtype=np.double)
 
     policy = torch.jit.load(args.load_model)
     run_mujoco(policy, Sim2simCfg())

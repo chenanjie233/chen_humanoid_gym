@@ -135,7 +135,7 @@ def play(args):
 
         logger.log_states(
             {
-                'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale,
+                'dof_pos_target': actions[robot_index, joint_index].item() * env.action_scale_vec[0, joint_index].item(),
                 'dof_pos': env.dof_pos[robot_index, joint_index].item(),
                 'dof_vel': env.dof_vel[robot_index, joint_index].item(),
                 'dof_torque': env.torques[robot_index, joint_index].item(),

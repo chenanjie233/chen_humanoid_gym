@@ -35,8 +35,14 @@ from .base.legged_robot import LeggedRobot
 
 from .custom.humanoid_config import XBotLCfg, XBotLCfgPPO
 from .custom.humanoid_env import XBotLFreeEnv
+from .custom.zrobot_config import ZRobotCfg, ZRobotCfgPPO
+from .custom.zrobot_env import ZRobotFreeEnv
 
 from humanoid.utils.task_registry import task_registry
 
 
 task_registry.register( "humanoid_ppo", XBotLFreeEnv, XBotLCfg(), XBotLCfgPPO() )
+task_registry.register( "zrobot_ppo", ZRobotFreeEnv, ZRobotCfg(), ZRobotCfgPPO() )
+
+# (humanoid26_6_8) c112@c112-3660-2004:~/codes/chen_human/humanoid26_6_8/humanoid-gym/humanoid$ python humanoid/scripts/play.py 
+# --task=zrobot_ppo --load_run /home/c112/codes/chen_human/humanoid26_6_8/humanoid-gym/logs/zrobot_ppo/Jun10_17-01-45_v1 --run_name Jun10_17-01-45_v1

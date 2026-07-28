@@ -31,9 +31,9 @@
 from humanoid.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 
-class XBotLCfg(LeggedRobotCfg):
+class ZRobotCfg(LeggedRobotCfg):
     """
-    Configuration class for the XBotL humanoid robot.
+    Configuration class for the zrobot humanoid robot.
     """
     class env(LeggedRobotCfg.env):
         # change the observation dim
@@ -55,10 +55,10 @@ class XBotLCfg(LeggedRobotCfg):
         torque_limit = 0.85
 
     class asset(LeggedRobotCfg.asset):
-        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/XBot/urdf/XBot-L.urdf'
+        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/zrobot/urdf/zrobot.urdf'
 
-        name = "XBot-L"
-        foot_name = "ankle_roll"
+        name = "zrobot"
+        foot_name = "foot_roll"
         knee_name = "knee"
 
         terminate_after_contacts_on = ['base_link']
@@ -90,7 +90,7 @@ class XBotLCfg(LeggedRobotCfg):
         noise_level = 0.6    # scales other values
 
         class noise_scales:
-            dof_pos = 0.05
+            dof_pos = 0.02
             dof_vel = 0.5
             ang_vel = 0.1
             lin_vel = 0.05
@@ -98,32 +98,48 @@ class XBotLCfg(LeggedRobotCfg):
             height_measurements = 0.1
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.95]
+        pos = [0.0, 0.0, 0.760]
 
         default_joint_angles = {  # = target angles [rad] when action = 0.0
-            'left_leg_roll_joint': 0.,
-            'left_leg_yaw_joint': 0.,
-            'left_leg_pitch_joint': 0.,
-            'left_knee_joint': 0.,
-            'left_ankle_pitch_joint': 0.,
-            'left_ankle_roll_joint': 0.,
-            'right_leg_roll_joint': 0.,
-            'right_leg_yaw_joint': 0.,
-            'right_leg_pitch_joint': 0.,
-            'right_knee_joint': 0.,
-            'right_ankle_pitch_joint': 0.,
-            'right_ankle_roll_joint': 0.,
+            'L_hip_roll_joint': 0.,
+            'L_hip_yaw_joint': 0.,
+            'L_hip_pitch_joint': -0.35,
+            'L_knee_joint': -0.65,
+            'L_foot_pitch_joint': 0.3,
+            'L_foot_roll_joint': 0.,
+            'R_hip_roll_joint': 0.,
+            'R_hip_yaw_joint': 0.,
+            'R_hip_pitch_joint': 0.35,
+            'R_knee_joint': 0.65,
+            'R_foot_pitch_joint': -0.3,
+            # 'R_hip_pitch_joint': 0.45,
+            # 'R_knee_joint': 0.85,
+            # 'R_foot_pitch_joint': -0.4,
+            'R_foot_roll_joint': 0.,
         }
 
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
-        stiffness = {'leg_roll': 200.0, 'leg_pitch': 350.0, 'leg_yaw': 200.0,
-                     'knee': 350.0, 'ankle': 15}
-        damping = {'leg_roll': 10, 'leg_pitch': 10, 'leg_yaw':
-                   10, 'knee': 10, 'ankle': 10}
+        stiffness = {'hip_roll': 200.0, 'hip_pitch': 120.0, 'hip_yaw': 120.0,
+                     'knee': 180.0, 'foot': 80}
+        damping = {'hip_roll': 3, 'hip_pitch': 1, 'hip_yaw': 1,
+                     'knee': 3, 'foot': 1}
+        # stiffness = {'hip_roll': 120.0, 'hip_pitch': 120.0, 'hip_yaw': 120.0,
+        #                      'knee': 120.0, 'foot': 60}
+        # damping = {'hip_roll': 1, 'hip_pitch': 1, 'hip_yaw': 1,
+        #              'knee': 1, 'foot': 1}
+        # stiffness = {'hip_roll': 200.0, 'hip_pitch': 200.0, 'hip_yaw': 200.0,
+        #              'knee':200.0, 'foot': 80}
+        # damping = {'hip_roll':8, 'hip_pitch': 8, 'hip_yaw': 8,
+        #              'knee': 8, 'foot': 8}
+        # stiffness = {'hip_roll': 200.0, 'hip_pitch': 200.0, 'hip_yaw': 200.0,
+        #                 'knee':200.0, 'foot': 80}
+        # damping = {'hip_roll':3, 'hip_pitch': 3, 'hip_yaw': 3,
+        #                 'knee': 3, 'foot': 3}
 
         # action scale: target angle = actionScale * action + defaultAngle
-        action_scale = 0.25
+        action_scale = {'hip_roll': 0.15, 'hip_pitch': 0.25, 'hip_yaw': 0.25,
+                        'knee': 0.25, 'foot': 0.1}
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 10  # 100hz
 
@@ -150,11 +166,11 @@ class XBotLCfg(LeggedRobotCfg):
         randomize_friction = True
         friction_range = [0.1, 2.0]
         randomize_base_mass = True
-        added_mass_range = [-5., 5.]
+        added_mass_range = [-1.0, 1.0]
         push_robots = True
         push_interval_s = 4
         max_push_vel_xy = 0.2
-        max_push_ang_vel = 0.2
+        max_push_ang_vel = 0.4
         # dynamic randomization
         action_delay = 0.5
         action_noise = 0.02
@@ -169,14 +185,17 @@ class XBotLCfg(LeggedRobotCfg):
             lin_vel_x = [-0.3, 0.6]   # min max [m/s]
             lin_vel_y = [-0.3, 0.3]   # min max [m/s]
             ang_vel_yaw = [-0.3, 0.3] # min max [rad/s]
+            # lin_vel_x = [-1.0, 1.0]   # min max [m/s]
+            # lin_vel_y = [-1.0, 1.0]   # min max [m/s]
+            # ang_vel_yaw = [-1.0, 1.0] # min max [rad/s]
             heading = [-3.14, 3.14]
 
     class rewards:
-        base_height_target = 0.89
+        base_height_target = 0.755
         min_dist = 0.2
         max_dist = 0.5
         # put some settings here for LLM parameter tuning
-        target_joint_pos_scale = 0.17    # rad
+        target_joint_pos_scale = 0.17    # rad//
         target_feet_height = 0.06        # m
         cycle_time = 0.64                # sec
         # if true negative total rewards are clipped at zero (avoids early termination problems)
@@ -227,7 +246,7 @@ class XBotLCfg(LeggedRobotCfg):
         clip_actions = 18.
 
 
-class XBotLCfgPPO(LeggedRobotCfgPPO):
+class ZRobotCfgPPO(LeggedRobotCfgPPO):
     seed = 5
     runner_class_name = 'OnPolicyRunner'   # DWLOnPolicyRunner
 
@@ -252,10 +271,10 @@ class XBotLCfgPPO(LeggedRobotCfgPPO):
 
         # logging
         save_interval = 100  # Please check for potential savings every `save_interval` iterations.
-        experiment_name = 'XBot_ppo'
+        experiment_name = 'zrobot_ppo'
         run_name = ''
         # Load and resume
         resume = False
-        load_run = -1  # -1 = last run
-        checkpoint = -1  # -1 = last saved model
+        load_run = '/home/c112/codes/chen_human/humanoid26_6_8/humanoid-gym/logs/zrobot_ppo/Jul24_16-29-13_v1'  # -1 = last run
+        checkpoint = 3000  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt
