@@ -98,23 +98,23 @@ class ZRobotCfg(LeggedRobotCfg):
             height_measurements = 0.1
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.760]
+        pos = [0.0, 0.0, 0.784]
 
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'L_hip_roll_joint': 0.,
             'L_hip_yaw_joint': 0.,
-            'L_hip_pitch_joint': -0.35,
-            'L_knee_joint': -0.65,
-            'L_foot_pitch_joint': 0.3,
+            'L_hip_pitch_joint': -0.13,
+            'L_knee_joint': -0.32,
+            'L_foot_pitch_joint': 0.19,
             'L_foot_roll_joint': 0.,
             'R_hip_roll_joint': 0.,
             'R_hip_yaw_joint': 0.,
-            'R_hip_pitch_joint': 0.35,
-            'R_knee_joint': 0.65,
-            'R_foot_pitch_joint': -0.3,
-            # 'R_hip_pitch_joint': 0.45,
-            # 'R_knee_joint': 0.85,
-            # 'R_foot_pitch_joint': -0.4,
+            'R_hip_pitch_joint': 0.13,
+            'R_knee_joint': 0.32,
+            'R_foot_pitch_joint': -0.19,
+            # 'R_hip_pitch_joint': 0.35,
+            # 'R_knee_joint': 0.65,
+            # 'R_foot_pitch_joint': -0.3,
             'R_foot_roll_joint': 0.,
         }
 
@@ -191,11 +191,11 @@ class ZRobotCfg(LeggedRobotCfg):
             heading = [-3.14, 3.14]
 
     class rewards:
-        base_height_target = 0.755
+        base_height_target = 0.780
         min_dist = 0.2
         max_dist = 0.5
         # put some settings here for LLM parameter tuning
-        target_joint_pos_scale = 0.17    # rad//
+        target_joint_pos_scale = 0.17    # rad (foot_pitch: 0.19+0.17=0.36 距 URDF limit 0.4 有余量)
         target_feet_height = 0.06        # m
         cycle_time = 0.64                # sec
         # if true negative total rewards are clipped at zero (avoids early termination problems)
@@ -230,6 +230,7 @@ class ZRobotCfg(LeggedRobotCfg):
             # energy
             action_smoothness = -0.002
             torques = -1e-5
+            # torques = -2e-4
             dof_vel = -5e-4
             dof_acc = -1e-7
             collision = -1.
@@ -275,6 +276,6 @@ class ZRobotCfgPPO(LeggedRobotCfgPPO):
         run_name = ''
         # Load and resume
         resume = False
-        load_run = '/home/c112/codes/chen_human/humanoid26_6_8/humanoid-gym/logs/zrobot_ppo/Jul24_16-29-13_v1'  # -1 = last run
+        load_run = -1  # -1 = last run
         checkpoint = 3000  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt

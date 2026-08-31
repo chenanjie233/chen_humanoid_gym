@@ -175,7 +175,7 @@ def run_mujoco(policy, cfg):
             action[:] = policy(torch.tensor(policy_input))[0].detach().numpy()
             action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)
 
-            if count_lowlevel>1000:
+            if count_lowlevel>300:
                 as_scale = cfg.control.action_scale
                 if isinstance(as_scale, dict):
                     # joint order: hip_roll, hip_yaw, hip_pitch, knee, foot_pitch, foot_roll (x2 L/R)
